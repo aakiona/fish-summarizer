@@ -1,0 +1,488 @@
+---
+title: "Fish summarizer function"
+author: "Anela Akiona, Stuart Sandin, Brian Zgliczynski"
+output:
+  word_document: default
+  html_document: default
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+This Rmd is an R markdown function that calculates density and biomass of fish transect count data, using user-provided length-weight parameters, and produces summary files and plots. 
+
+## The function inputs are:
+- fishdata -- the csv file containing the field observation data of fish counts and lengths.
+- LWfile -- the csv file containing the fish life history parameters.
+  - *NOTE: this function will not work if there are species missing LW parameters*
+- filename -- unique island/site name to identify output files.
+- sp_data -- the column name which contains the species names for the fish data file.
+- sp_lw -- the column name which contains the species names for the length-weight parameters. These values *must* match the values in sp_data.
+- integrate -- if TRUE, uses integral method to calculate biomass. If FALSE, uses the given length.
+- size_correct -- number to be subtracted from the total length of each fish prior to biomass calculation. Cannot be used if integrate = TRUE.
+- bin -- bin size used for length measurements (cm). Can either be a single number or a vector of numbers.
+- max_size -- maximum size to which biomass should be calculated when bin is a single number (cm).
+- size_threshold -- fish length at which belt transect width changes (cm)
+- width_below -- width of transect for fish smaller than size_threshold (m).
+- width_above -- width of transect for fish larger than size_threshold (m).
+- transect_length -- length of transect (m).
+
+
+## Outputs
+Data files:
+-	fish_summary_station_'filename'.csv
+  -	Biomass and density for each station.
+-	fish_summary_group_'filename'.csv
+  -	Biomass and density by trophic group at each station.
+-	fish_summary_species_'filename'.csv
+  -	Biomass and density by species at each station.
+Plots:
+-	fish_summary_density_'filename'.png
+  -	Stacked bar chart of density (#/m2) by trophic group at each station.
+-	fish_summary_biomass_'filename'.png
+  -	Stacked bar chart of biomass (g/m2) by trophic group at each station.
+
+
+```{r}
+fish_summary <- function(fishdata, LWfile, filename, 
+                         sp_data = "Species", sp_lw = "NewName",
+                         integrate = TRUE, 
+                         size_correct = 0,
+                         bin = 5, max_size = 300, size_threshold = 20, 
+                         width_below = 2, width_above = 4, transect_length = 25) {
+
+
+# Load packages ####
+library(Hmisc)
+library(gdata)
+library(readxl)
+library(ggplot2)
+library(tidyr)
+library(dplyr)
+library(tibble)
+library(fishualize)
+
+
+#### Import data files and QC #####
+  
+# Read in "fish", the raw survey data
+### NOTE: data needs to be in csv format in order for columns to be recognized as factors
+fish <- read.csv(fishdata, header = TRUE)
+
+# Remove any NA rows/columns added by R
+fish <- fish[colSums(!is.na(fish)) > 0] # cols
+fish <- fish[!is.na(fish$Size), ]       # rows
+
+
+# Read in "LW", the species-specific lookup table, with length-weight data and trophic (or other) classifications
+LW <- read.csv(LWfile, header = TRUE)
+
+n <- length(fish[, 1])
+
+
+# Brief routine to check if all species listed in 'fish' are contained within 'LW'
+### ADDED 28 Sept 2015
+
+# Needs to be up here or sometimes an error will pop up if there are spp missing
+spp <- levels(drop.levels(as.factor(fish[ , sp_data])))
+n_spp <- length(spp)
+
+ii <- 1
+
+for(i in 1:n) {
+  
+  temp_spp <- fish[i, sp_data]
+  jj <- match(temp_spp, LW[ , sp_lw], nomatch = NA)
+  
+  if(is.na(jj)==TRUE && ii==1) {
+    missing_spp = temp_spp
+    ii <- 2
+  } 
+  
+  if(is.na(jj)==TRUE && ii>1) {
+    temp_missing <- match(temp_spp,spp[missing_spp], nomatch=NA)
+    
+    if(is.na(temp_missing)==TRUE) {
+      missing_spp <- c(missing_spp,temp_spp)
+      ii <- ii+1
+    }
+  }
+  
+} #i
+
+#########
+
+# List of the species codes for the missing species, to allow additions to the LW core table
+### NOTE -- if response of below is "Error: object 'missing_spp' not found' comes up, then the LW table is complete.  Good news!
+
+if (exists("missing_spp") == TRUE) {
+  warning("Some species are missing length-weight parameters")
+  print(unique(missing_spp))
+  }
+
+rm(missing_spp)
+
+#################################################
+#
+# Beginning of summary routine ####
+#
+#################################################
+
+# Create parameters from dataset to pass to for loop ####
+## Need to use drop.levels to remove blank level that randomly gets added
+# sp_data and sp_lw are user-specified column names that identify the species in the respective data files
+
+station <- levels(drop.levels(as.factor(fish$Station)))
+n_station <- length(station)
+
+groups <- levels(drop.levels(as.factor(LW$Trophic)))
+n_groups <- length(groups)
+
+species <- levels(drop.levels(as.factor(LW[ , sp_lw])))
+n_species <- length(species)
+
+
+
+# Lookup effort table for the total number of observers x transect x date combinations for each site ####
+### This reflects the total effort, in units of observer-specific individual 25m-long transects (two widths, following DeMartini / Friedlander / Sandin)
+
+effort <- array(0, c(n_station), dimnames = list(station))
+
+for (i in 1:n_station) {
+  
+  effort[i] <- dim(unique(fish[which(fish$Station == station[i]), c("Date", "Diver", "Transect")]))[1]
+  
+} #i
+
+
+# Create empty matrices/arrays to store values ####
+### Per capita biomass of a fish
+pc_biomass <- matrix(nrow = n, ncol = 1) 
+
+# Create empty column in df to populate with biomass of each fish
+fish$pcbio <- NA
+
+### Numbers and biomass at each station
+numbers <- array(0, c(n_station), dimnames = list(station)) 
+biomass <- array(0, c(n_station), dimnames = list(station)) 
+
+### Number and biomass by functional group
+numbers_groups <- array(0, c(n_station, n_groups), dimnames = list(station, groups))
+biomass_groups <- array(0, c(n_station, n_groups), dimnames = list(station, groups)) 
+
+### Number and biomass by species by station
+numbers_species <- array(0, c(n_station, n_species), dimnames = list(station, species)) 
+biomass_species <- array(0, c(n_station, n_species), dimnames = list(station, species)) 
+
+
+
+#################################################
+#
+# Create biomass lookup table ####
+# By AKA 8/14/24
+#
+#################################################
+
+
+# Create new df with desired columns
+lookup <- LW %>%
+  select(all_of(c("Taxon", sp_lw, "LTLRat", "a_cm", "b_cm", "Family", "Trophic")))
+
+# Define # to start inner loop at (first column that isn't metadata)
+start_loop <- ncol(lookup) + 1
+
+### Need to decide if I want to keep this in here
+#lookup$Family <- as.factor(lookup$Family) # convert to factor
+
+## Create new columns depending on whether bin is just 1 value or a vector of values
+    if (length(bin) == 1){
+      new_cols <- as.character(seq(bin, max_size, bin)) # create names for new columns
+    }
+
+    if (length(bin) > 1){
+      new_cols <- as.character(bin)
+      }
+
+# Create and add new columns for each size class
+## Starting at bin omits the 0 size class
+lookup[new_cols] <- NA
+
+n_lookup <- length(lookup[ , sp_lw]) # define length of outer loop
+end_loop <- ncol(lookup) # Define # to end inner loop at (last column of bins)
+
+
+
+#################################################
+#
+# For loop to create lookup table ####
+#
+#################################################
+
+for (i in 1:n_lookup) {
+  
+  # Define length-weight relationship W = a(L^b)
+  ## L is the total length of the fish (cm)
+  ## Gives the mass (g) of the fish at a given L
+  
+  LWfun <- function(L) {
+    
+    lookup$a_cm[i] * ((lookup$LTLRat[i] * L)^lookup$b_cm[i]) # have to call the specific a/b/LTLRat for each species
+  
+  } # LWfun
+  
+  # Loop through each size bin column
+  for (j in start_loop:end_loop) { # excludes metadata columns 
+    
+    # Use the integral method to calculate mass
+    if (integrate == TRUE){
+    
+      # For first iteration of loop, define lower limit of integration as 0
+      if (j == start_loop){
+        # Extract column name as numeric to call in integrate function
+        size_upper <- as.numeric(colnames(lookup)[j])   # extract column name (size bin)
+    
+        # Integrate LW function across size class
+        integral <- (integrate(LWfun, lower = 0, upper = size_upper))
+        
+        # Take average of integral value over bin width, assign to df
+        lookup[i, j] <- (1/(size_upper)) * integral$value
+        
+      } # j == start
+      
+      
+      if (j != start_loop){
+        # Extract column name as numeric to call in integrate function
+        size_upper <- as.numeric(colnames(lookup)[j])   # extract column name (size bin)
+        size_lower <- as.numeric(colnames(lookup)[j - 1])   # lower size bin
+        
+        # Integrate LW function across size class
+        integral <- (integrate(LWfun, lower = size_lower, upper = size_upper))
+        
+        # Take average of integral value over bin width, assign to df
+        lookup[i, j] <- (1/(size_upper - size_lower)) * integral$value
+     
+       } # j != start
+      
+    } # integrate == TRUE
+    
+    
+    # When not using integral method, use the value of the size bin to calculate mass.
+    if (integrate == FALSE){
+      
+      lookup[i, j] <- LWfun(as.numeric(colnames(lookup)[j]) - size_correct)
+    } # integrate == FALSE
+    
+  } # j
+  
+} # i     end of lookup table routine
+
+
+
+
+#################################################
+#
+# Beginning of for loop to calculate density and biomass ####
+# Modified by AKA 2/28/20
+#
+#################################################
+
+# This for loop:
+#   (1) Calculates per capita biomass of fish from a row of data
+#   (2) Creates matrix of biomass and numbers (density) of fish at each station
+#   (3) Creates matrix of biomass and numbers (density) by functional group
+#   (4) Creates matrix of biomass and numbers (density) by species by station
+
+
+
+for (i in 1:n) { # where n = length(fish[,1])
+  if (fish$Data_Type[i] == "QUAN") {
+    
+    jj <- match(fish$Station[i],station)    
+    spp <- match(fish[i, sp_data], LW[ , sp_lw], nomatch = NA)
+    temp_trophic <- LW$Trophic[spp]
+    
+    # Define conversion factor to standardize to units per m^2 
+    ## (# of unique person-transects x [4 or 2]m x 25m transect)
+    if (fish$Size[i] > size_threshold) {convert = (1 / effort[jj]) * (1 / (width_above * transect_length))}
+    
+    else {convert = (1 / effort[jj]) * (1 / (width_below * transect_length))}
+    
+    ##################
+    
+    # (1) Calculate the per capita biomass of a fish from a row of data
+    
+    ## Calculate biomass
+    ### W = aL^b
+    
+    # Match fish size with column of lookup table (fish size) and pull cell value for biomass
+    col_size <- match(fish$Size[i], names(lookup))
+    pc_biomass[i] <- lookup[spp, col_size]
+
+    ##################
+    
+    # (2) Create matrix of biomass and numbers (density) of fish at each station
+    numbers[jj] <- numbers[jj] + (convert * fish$Number[i])
+    biomass[jj] <- biomass[jj] + (convert * (fish$Number[i] * pc_biomass[i]))
+    
+    ##################
+    
+    # (3) Create matrix of biomass and numbers (density) by functional group
+    numbers_groups[jj, temp_trophic] <- numbers_groups[jj, temp_trophic] + (convert * fish$Number[i])
+    biomass_groups[jj, temp_trophic] <- biomass_groups[jj, temp_trophic] + (convert * (fish$Number[i] * pc_biomass[i]))
+    
+    ##################
+    
+    # (4) Create matrix of biomass and numbers (density) by species by station
+    numbers_species[jj, spp] <- numbers_species[jj, spp] + (convert * fish$Number[i])
+    biomass_species[jj, spp] <- biomass_species[jj, spp] + (convert * (fish$Number[i] * pc_biomass[i]))
+    
+    
+  } # if
+  
+} # for i
+
+
+
+#################################
+#
+# CREATE SUMMARY DATA FRAMES ####
+# Added by AKA 3/3/20
+#
+#################################
+
+# Reformat summary matrices into data frames with columns:
+#   station
+#   Trophic_group or Species
+#   Density (#/m2)
+#   Biomass (g/m2)
+
+#################################
+
+### For biomass and density by STATION
+
+# Convert matrices to tibbles, add column of station names, rename column
+station_numb <- as_tibble(numbers) %>% 
+  add_column(station, .before = 1)
+colnames(station_numb)[2] <- "Density"
+  
+station_bio <- as_tibble(biomass) %>% 
+  add_column(station, .before = 1)
+colnames(station_bio)[2] <- "Biomass"
+
+# Combine into one data frame by cols "Trophic_Group", "station"
+summary_station <- as.data.frame(inner_join(station_numb, station_bio))
+
+
+#################################
+
+### For biomass and density by TROPHIC GROUP
+
+# Convert matrices to tibbles, add column of station names, reformat
+group_numb <- as_tibble(numbers_groups) %>% 
+  add_column(station, .before = 1) %>% 
+  gather(key = "Trophic_group", value = "Density", -1)
+  
+group_bio <- as_tibble(biomass_groups) %>% 
+  add_column(station, .before = 1) %>% 
+  gather(key = "Trophic_group", value = "Biomass", -1)
+
+# Combine into one data frame by cols "Trophic_Group", "station"
+summary_group <- as.data.frame(inner_join(group_numb, group_bio))
+
+
+#################################
+
+### For biomass and density by SPECIES
+
+# Convert matrices to tibbles, add column of station names, reformat
+species_numb <- as_tibble(numbers_species) %>% 
+  add_column(station, .before = 1) %>% 
+  gather(key = "Species", value = "Density", -1)
+
+species_bio <- as_tibble(biomass_species) %>% 
+  add_column(station, .before = 1) %>% 
+  gather(key = "Species", value = "Biomass", -1)
+
+# Combine into one data frame by cols "Trophic_Group", "station"
+summary_species <- as.data.frame(inner_join(species_numb, species_bio))
+
+# Routine to add Family to df
+k <- length(summary_species$Species)
+summary_species$Family <- NA
+
+for (i in 1:k) {
+  jj <- match(summary_species$Species[i], LW$NewName)
+  summary_species$Family[i] <- LW$Family[jj]
+}
+
+summary_species <- summary_species %>%
+  filter(Biomass != 0 & Density != 0) # remove species that weren't observed
+summary_species <- summary_species[ , c(1, 2, 5, 3, 4)] # reorder columns
+
+
+###### NOTE TO SELF: THIS WILL NEED TO CHANGE FOR PUBLICATION AS CODE IS NOT A COLUMN #####
+
+#################################
+#
+# CREATE OUTPUT FILES ####
+# Modified by AKA 3/3/20
+#
+#################################
+
+# Write csv files
+#write.csv(fish, file = paste0("fish_with_biomass_", filename, ".csv"), row.names = FALSE)
+write.csv(summary_station, file = paste0("fish_summary_station_", filename, ".csv"), row.names = FALSE)
+write.csv(summary_group, file = paste0("fish_summary_group_", filename, ".csv"), row.names = FALSE)
+write.csv(summary_species, file = paste0("fish_summary_species_", filename, ".csv"), row.names = FALSE)
+
+
+
+#################################
+#
+# CREATE SUMMARY PLOTS = ####
+# Added by AKA 8/14/24
+#
+#################################
+
+
+summary_group$Trophic_group <- factor(summary_group$Trophic_group, ordered = TRUE, levels = c("Top-predator shark", "Top-predator", "Lower-carnivore", "Planktivore", "Herbivore"))
+
+plotcol <- c("red", "black",  "gray48", "gainsboro", "chartreuse3")
+
+# Abundance
+density_plot <- ggplot(summary_group, aes(fill = Trophic_group, y = Density, x = station)) +
+  geom_bar(position = "stack", stat = "identity", colour = "black") + # colour add black outline to bar sections
+  theme_classic() +
+  scale_fill_manual(values = plotcol) +
+  scale_y_continuous(expand = c(0, 0), limits = c(0, NA)) +
+  labs(x = "Station",
+    y = bquote('Abundance (#' ~m^-2~')'),
+    fill = "Trophic group") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1), # rotate x axis labels and shift down
+        text = element_text(family = "sans")) +
+  ggtitle(filename)
+
+# Biomass
+biomass_plot <- ggplot(summary_group, aes(fill = Trophic_group, y = Biomass, x = station)) +
+  geom_bar(position = "stack", stat = "identity", colour = "black") +
+  theme_classic() +
+  scale_fill_manual(values = plotcol) +
+  scale_y_continuous(expand = c(0, 0), limits = c(0, NA)) +
+  labs(x = "Station",
+    y = bquote('Biomass (g' ~m^-2~')'),
+    fill = "Trophic group") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1), # rotate x axis labels and shift down
+        text = element_text(family = "sans")) +
+  ggtitle(filename)
+
+print(density_plot)
+print(biomass_plot)
+
+ggsave(density_plot, filename = paste0("fish_summary_density_", filename, ".png"))
+ggsave(biomass_plot, filename = paste0("fish_summary_biomass_", filename, ".png"))
+
+} # fish_summary
+
+```
+
