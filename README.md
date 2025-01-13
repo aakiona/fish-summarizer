@@ -37,17 +37,24 @@ Length of transect (m).
 
 ## Outputs
 Data files:
+
 	fish_summary_station_'filename'.csv
-	Biomass and density for each station.
+		Biomass and density for each station.
+  
 	fish_summary_group_'filename'.csv
-	Biomass and density by trophic group at each station.
+		Biomass and density by trophic group at each station.
+ 
 	fish_summary_species_'filename'.csv
-	Biomass and density by species at each station.
+		Biomass and density by species at each station.
+ 
 Plots:
+
 	fish_summary_density_'filename'.png
 	Stacked bar chart of density (#/m2) by trophic group at each station.
+ 
 	fish_summary_biomass_'filename'.png
 	Stacked bar chart of biomass (g/m2) by trophic group at each station.
+ 
 
 ## Details
 ### Data file requirements
