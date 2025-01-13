@@ -9,34 +9,24 @@ Fish_summarizer_function.Rmd is an R markdown function that calculates density a
 
 ## Arguments
 
-- fishdata
-	The CSV file containing the field observation data of fish counts and lengths.
+- fishdata: The CSV file containing the field observation data of fish counts and lengths.
 
-- LWfile
-	The CSV file containing the species-specific length-weight parameters.
+- LWfile: The CSV file containing the species-specific length-weight parameters.
 
-filename
-Unique identifier to be included in output file names.
-sp_data
-Name of the column in fishdata which contains the species names. The values in this column must match the values in sp_lw.
-sp_lw
-Name of the column in LWfile which contains the species names. The values in this column must match the values in sp_data.
-integrate
-If TRUE, uses the integral method to calculate biomass. If FALSE, biomass is calculated using the given length.
-size_correct
-Number to be subtracted from the total length of each fish prior to biomass calculation. Cannot be used if integrate = TRUE.
-bin
-Bin size used for length measurements. This can either be a single number or vector of numbers.
-max_size
-If bin is a single number, this is the maximum size to which biomass should be calculated.
-size_threshold
-Fish length at which belt transect width changes (cm). If belt width is the same for the entire transect, enter 0.
-width_below
-Width of transect for fish smaller than size_threshold (m).
-width_above
-Width of transect for fish larger than size_threshold (m). If belt width is the same for the entire transect, enter it here.
-transect_length
-Length of transect (m).
+- filename: Unique identifier to be included in output file names.
+  
+- sp_data: Name of the column in fishdata which contains the species names. The values in this column must match the values in sp_lw.
+  
+- sp_lw: Name of the column in LWfile which contains the species names. The values in this column must match the values in sp_data.
+- integrate: If TRUE, uses the integral method to calculate biomass. If FALSE, biomass is calculated using the given length.
+- size_correct: Number to be subtracted from the total length of each fish prior to biomass calculation. Cannot be used if integrate = TRUE.
+- bin: Bin size used for length measurements. This can either be a single number or vector of numbers.
+- max_size: If bin is a single number, this is the maximum size to which biomass should be calculated.
+- size_threshold: Fish length at which belt transect width changes (cm). If belt width is the same for the entire transect, enter 0.
+- width_below: Width of transect for fish smaller than size_threshold (m).
+- width_above: Width of transect for fish larger than size_threshold (m). If belt width is the same for the entire transect, enter it here.
+  
+- transect_length: Length of transect (m).
 
 ## Outputs
 Data files:
