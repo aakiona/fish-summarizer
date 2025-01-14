@@ -1,8 +1,10 @@
 # fish-summarizer
- README File
+README File
+
 File name: Fish_summarizer_function.Rmd
+
 Created by Anela K. Akiona, aakiona@ucsd.edu
-Last Edited: 10 January 2025
+
 
 ## Description
 Fish_summarizer_function.Rmd is an R markdown function that calculates density and biomass of fish transect count data, using user-provided length-weight parameters, and produces summary files and plots. The motivation for developing this function was to provide a one-stop-shop for colleagues and collaborators to utilize the length-weight parameters published in *Master Blaster citation here*. This function was conceived and created by members of the Sandin Lab at Scripps Institution of Oceanography at UC San Diego, and as such the function is tailored for their belt transect methods, though it is meant to be customizable to other styles of belt transects.
@@ -118,16 +120,15 @@ When estimating fish lengths in the field, it is often prudent to classify indiv
 
 Here, we standardize the correction using the mean value theorem for integrals, which states that if f(x) is a continuous function on the closed interval [a, b], then there exists a number c in the closed interval such that
 
-∫_a^b▒〖f(x)dx=f(c)*(b-a)〗
-$\int_a^b \mathrm{f}(x)\, \mathrm{d}x$
+$$\int_{a}^{b} f(x) \mathrm{d}x = f(c) * (b - a)$$
 
 Where f(c) is the average value of the function from a to b. For the length-weight relationship, this can be written as,
 
-∫_(x_1)^(x_2)▒〖a_i L^(b_i ) dL=(W_i ) ̅*(x_2-x_1 ),〗
+$$\int_{x_1}^{x_2} a_i L^{b_i} \mathrm[d]L = \bar{W} * (x_2 - x_1)$$
 
 Where x_1 and x_2 are the lower and upper limits of the size bin, respectively, and ¯W_i is the mean weight of the size bin. This can be rearranged to give,
 
-(W_i ) ̅=(∫_(x_1)^(x_2)▒〖a_i L^(b_i ) dL〗)/(x_2-x_1 )
+$$\bar{W} = \frac{\int_{x_1}^{x_2} a_i L^{b_i} \mathrm[d]L}{x_2 - x_1}$$
 
 This method corrects for potential bias introduced in the belt survey methods and will work regardless of the width of the size bin. When integrate=TRUE, the function will calculate biomass using the mean value theorem for integrals. When integrate=FALSE, the function will calculate biomass using the given length, i.e. the maximum value for that size bin.
 
