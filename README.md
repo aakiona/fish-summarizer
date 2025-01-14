@@ -47,10 +47,11 @@ Plots:
  
 
 ## Details
-** Data file requirements **
+_Data file requirements_
+
 This code calls specific column names to conduct the calculations, and as such the data files passed to the function must contain those column names. Below are the required column names for the respective data files. Please note that unless indicated otherwise, the names must be identical, including capitalization.
 
-** Required columns in the fish survey data file (with order of columns not constrained): **
+_Required columns in the fish survey data file (with order of columns not constrained):_
 
 1) Data_Type -- For all count data, record as "QUAN" (differentiates from "PRES" used to document presence in larger swath for remote island surveys). Only data with Data_Type = QUAN will be included in the calculations,
 	
@@ -81,7 +82,7 @@ Weight (g)=a_cm*(LTLRat*fish$Size[field estimate of TL in cm])^(b_cm)
 
 9) Trophic -- Trophic level classification for each species. Any types of unique categorizations will work.
 
-** Examples **
+_Examples_
 ```
 ## Using the integral method
 fish_summary(fishdata = "Pohnpei_2018-08_Fish_Data.csv", 
@@ -111,13 +112,14 @@ fish_summary(fishdata = "Pohnpei_2016-08_Fish_Data.csv",
             transect_length = 30)
 ```
 
-** Notes on size correcting and the integral method of biomass calculation **
+_Notes on size correcting and the integral method of biomass calculation_
+
 When estimating fish lengths in the field, it is often prudent to classify individual fish into size bins, rather than attempting to estimate length to the nearest 1 or 0.1 cm. While this is a commonplace and practical solution to the challenge of estimating the length of often rapidly moving organisms, it can introduce bias when calculating biomass – using the length estimated in the field assumes that every individual is at the maximum of the size bin, and thus biomass calculations can become artificially inflated. One such way to correct this bias is the use of a ‘size correct,’ which subtracts a user-defined amount from each fish size (e.g. 2 cm off every length for fish in 5 cm bins). This, however, can be quite arbitrary and may not be applicable when bin size changes with fish length.
 
 Here, we standardize the correction using the mean value theorem for integrals, which states that if f(x) is a continuous function on the closed interval [a, b], then there exists a number c in the closed interval such that
 
 ∫_a^b▒〖f(x)dx=f(c)*(b-a)〗
-\int_a^b \mathrm{f}(x)\, \mathrm{d}x
+$\int_a^b \mathrm{f}(x)\, \mathrm{d}x$
 
 Where f(c) is the average value of the function from a to b. For the length-weight relationship, this can be written as,
 
