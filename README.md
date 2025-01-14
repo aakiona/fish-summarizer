@@ -7,7 +7,7 @@ Created by Anela K. Akiona, aakiona@ucsd.edu
 
 
 ## Description
-Fish_summarizer_function.Rmd is an R markdown function that calculates density and biomass of fish transect count data, using user-provided length-weight parameters, and produces summary files and plots. The motivation for developing this function was to provide a one-stop-shop for colleagues and collaborators to utilize the length-weight parameters published in *Master Blaster citation here*. This function was conceived and created by members of the Sandin Lab at Scripps Institution of Oceanography at UC San Diego, and as such the function is tailored for their belt transect methods, though it is meant to be customizable to other styles of belt transects.
+Fish_summarizer_function.Rmd is an R markdown function that calculates density and biomass of fish transect count data, using user-provided length-weight parameters, and produces summary files and plots. The motivation for developing this function was to provide a one-stop-shop for colleagues and collaborators to utilize the length-weight parameters published in Akiona et al. *(In prep)*. This function was conceived and created by members of the Sandin Lab at Scripps Institution of Oceanography at UC San Diego, and as such the function is tailored for their belt transect methods, though it is meant to be customizable to other styles of belt transects.
 
 ## Arguments
 
@@ -71,7 +71,7 @@ _Required columns in the fish survey data file (with order of columns not constr
     
 14) Size -- Records the size of fish in cm.
 
-** Required columns in length-weight file (with order of columns not constrained): **
+_Required columns in length-weight file (with order of columns not constrained):_
 
 1) sp_lw -- Unique species codes or taxon names. The list in this column must include all species identifiers used in sp_data. This column can have any name, but it must be passed to the function as an argument,
    
