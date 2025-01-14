@@ -118,17 +118,17 @@ _Notes on size correcting and the integral method of biomass calculation_
 
 When estimating fish lengths in the field, it is often prudent to classify individual fish into size bins, rather than attempting to estimate length to the nearest 1 or 0.1 cm. While this is a commonplace and practical solution to the challenge of estimating the length of often rapidly moving organisms, it can introduce bias when calculating biomass – using the length estimated in the field assumes that every individual is at the maximum of the size bin, and thus biomass calculations can become artificially inflated. One such way to correct this bias is the use of a ‘size correct,’ which subtracts a user-defined amount from each fish size (e.g. 2 cm off every length for fish in 5 cm bins). This, however, can be quite arbitrary and may not be applicable when bin size changes with fish length.
 
-Here, we standardize the correction using the mean value theorem for integrals, which states that if f(x) is a continuous function on the closed interval [a, b], then there exists a number c in the closed interval such that
+Here, we standardize the correction using the mean value theorem for integrals, which states that if $f(x)$ is a continuous function on the closed interval [a, b], then there exists a number $c$ in the closed interval such that
 
 $$\int_{a}^{b} f(x) \mathrm{d}x = f(c) * (b - a)$$
 
 Where f(c) is the average value of the function from a to b. For the length-weight relationship, this can be written as,
 
-$$\int_{x_1}^{x_2} a_i L^{b_i} \mathrm[d]L = \bar{W} * (x_2 - x_1)$$
+$$\int_{x_1}^{x_2} a_i L^{b_i} \mathrm{d}L = \bar{W_i} * (x_2 - x_1)$$
 
-Where x_1 and x_2 are the lower and upper limits of the size bin, respectively, and ¯W_i is the mean weight of the size bin. This can be rearranged to give,
+Where $x_1$ and $x_2$ are the lower and upper limits of the size bin, respectively, and $\bar{W_i}$ is the mean weight of the size bin. This can be rearranged to give,
 
-$$\bar{W} = \frac{\int_{x_1}^{x_2} a_i L^{b_i} \mathrm[d]L}{x_2 - x_1}$$
+$$\bar{W_i} = \frac{\int_{x_1}^{x_2} a_i L^{b_i} \mathrm{d}L}{x_2 - x_1}$$
 
 This method corrects for potential bias introduced in the belt survey methods and will work regardless of the width of the size bin. When integrate=TRUE, the function will calculate biomass using the mean value theorem for integrals. When integrate=FALSE, the function will calculate biomass using the given length, i.e. the maximum value for that size bin.
 
