@@ -421,7 +421,6 @@ summary_species <- summary_species %>%
 summary_species <- summary_species[ , c(1, 2, 5, 3, 4)] # reorder columns
 
 
-###### NOTE TO SELF: THIS WILL NEED TO CHANGE FOR PUBLICATION AS CODE IS NOT A COLUMN #####
 
 #################################
 #
