@@ -15,7 +15,7 @@ This Rmd is an R markdown function that calculates density and biomass of fish t
 ## The function inputs are:
 - fishdata -- the csv file containing the field observation data of fish counts and lengths.
 - LWfile -- the csv file containing the fish life history parameters.
-  - *NOTE: this function will not work if there are species missing LW parameters*
+  - *NOTE: this function will not work if there are species missing length-weight parameters*
 - filename -- unique island/site name to identify output files.
 - sp_data -- the column name which contains the species names for the fish data file.
 - sp_lw -- the column name which contains the species names for the length-weight parameters. These values *must* match the values in sp_data.
@@ -43,8 +43,10 @@ Plots:
 -	fish_summary_biomass_'filename'.png
   -	Stacked bar chart of biomass (g/m2) by trophic group at each station.
 
+# USAGE NOTES:
+Run the below chunk (lines 49-541) to load the fish summarizer function. Then, in a separate chunk, run fish_summary() with the required arguments (fishdata, LWfile, and filename). Option to alter the other arguments if you wish to change the defaults.
 
-```{r}
+```{r Function - DO NOT ALTER}
 fish_summary <- function(fishdata, LWfile, filename, 
                          sp_data = "Species", sp_lw = "NewName",
                          integrate = TRUE, 
@@ -88,6 +90,13 @@ n <- length(fish[, 1])
 spp <- levels(drop.levels(as.factor(fish[ , sp_data])))
 n_spp <- length(spp)
 
+
+#################################################
+#
+# QC routines ####
+#
+#################################################
+### Length-weight parameters ####
 ii <- 1
 
 for(i in 1:n) {
@@ -114,14 +123,57 @@ for(i in 1:n) {
 #########
 
 # List of the species codes for the missing species, to allow additions to the LW core table
-### NOTE -- if response of below is "Error: object 'missing_spp' not found' comes up, then the LW table is complete.  Good news!
+### NOTE -- if response of below is "Error: object 'missing_spp' not found' comes up, then the LW table is complete. Good news!
 
-if (exists("missing_spp") == TRUE) {
-  warning("Some species are missing length-weight parameters")
+if(exists("missing_spp") == TRUE){
+  warning("Some species are missing length-weight parameters.")
   print(unique(missing_spp))
-  }
 
-rm(missing_spp)
+} else {
+  message("All species have length-weight parameters.")
+
+}
+
+
+### Check fish column names ####
+expected_cols_fish <- c("Data_Type", "Date", "Transect", "Diver", "Station", "Number", "Size")
+
+check_fish_cols <- function(df) {
+  actual_cols <- colnames(df)
+  
+  missing_cols <- setdiff(expected_cols_fish, actual_cols)
+  
+  if (length(missing_cols) == 0) {
+    message("All required columns are present in the fish data.")
+  } else {
+    warning("Some fish data columns are named incorrectly or are missing.")
+    cat("Missing columns:\n")
+    print(missing_cols)
+  }
+}
+
+check_fish_cols(fish)
+
+### Check LW column names ####
+expected_cols_lw <- c("a_cm", "b_cm", "LTLRat", "Trophic")
+
+# Function to check column names
+check_lw_cols <- function(df) {
+  actual_cols <- colnames(df)
+  
+  missing_cols <- setdiff(expected_cols_lw, actual_cols)
+  
+  if (length(missing_cols) == 0) {
+    message("All required columns are present in the length-weight parameter table.")
+  } else {
+    warning("Some required columns in the length-weight table are missing or are named incorrectly.")
+    cat("Missing columns:\n")
+    print(missing_cols)
+  }
+}
+
+check_lw_cols(LW)
+
 
 #################################################
 #
@@ -301,12 +353,12 @@ for (i in 1:n) { # where n = length(fish[,1])
     jj <- match(fish$Station[i],station)    
     spp <- match(fish[i, sp_data], LW[ , sp_lw], nomatch = NA)
     temp_trophic <- LW$Trophic[spp]
+    temp_spp <- as.character(fish$Species[i])
     
     # Define conversion factor to standardize to units per m^2 
     ## (# of unique person-transects x [4 or 2]m x 25m transect)
-    if (fish$Size[i] > size_threshold) {convert = (1 / effort[jj]) * (1 / (width_above * transect_length))}
-    
-    else {convert = (1 / effort[jj]) * (1 / (width_below * transect_length))}
+    if (fish$Size[i] > size_threshold) {convert = (1 / effort[jj]) * (1 / (width_above * transect_length))
+    } else {convert = (1 / effort[jj]) * (1 / (width_below * transect_length))}
     
     ##################
     
@@ -334,8 +386,8 @@ for (i in 1:n) { # where n = length(fish[,1])
     ##################
     
     # (4) Create matrix of biomass and numbers (density) by species by station
-    numbers_species[jj, spp] <- numbers_species[jj, spp] + (convert * fish$Number[i])
-    biomass_species[jj, spp] <- biomass_species[jj, spp] + (convert * (fish$Number[i] * pc_biomass[i]))
+    numbers_species[jj, temp_spp] <- numbers_species[jj, temp_spp] + (convert * fish$Number[i])
+    biomass_species[jj, temp_spp] <- biomass_species[jj, temp_spp] + (convert * (fish$Number[i] * pc_biomass[i]))
     
     
   } # if
@@ -352,7 +404,7 @@ for (i in 1:n) { # where n = length(fish[,1])
 #################################
 
 # Reformat summary matrices into data frames with columns:
-#   station
+#   Station
 #   Trophic_group or Species
 #   Density (#/m2)
 #   Biomass (g/m2)
@@ -408,13 +460,16 @@ species_bio <- as_tibble(biomass_species) %>%
 summary_species <- as.data.frame(inner_join(species_numb, species_bio))
 
 # Routine to add Family to df
-k <- length(summary_species$Species)
-summary_species$Family <- NA
+matches <- match(summary_species$Species, LW$NewName)
+summary_species$Family <- LW$Family[matches]
 
-for (i in 1:k) {
-  jj <- match(summary_species$Species[i], LW$NewName)
-  summary_species$Family[i] <- LW$Family[jj]
-}
+# k <- length(summary_species$Species)
+# summary_species$Family <- NA
+# 
+# for (i in 1:k) {
+#   jj <- match(summary_species$Species[i], LW$NewName)
+#   summary_species$Family[i] <- LW$Family[jj]
+# }
 
 summary_species <- summary_species %>%
   filter(Biomass != 0 & Density != 0) # remove species that weren't observed
@@ -445,7 +500,7 @@ write.csv(summary_species, file = paste0("fish_summary_species_", filename, ".cs
 #################################
 
 
-summary_group$Trophic_group <- factor(summary_group$Trophic_group, ordered = TRUE, levels = c("Top-predator shark", "Top-predator", "Lower-carnivore", "Planktivore", "Herbivore"))
+summary_group$Trophic_group <- factor(summary_group$Trophic_group, ordered = TRUE, levels = c("Shark", "Top-predator", "Lower-carnivore", "Planktivore", "Herbivore/Detritivore"))
 
 plotcol <- c("red", "black",  "gray48", "gainsboro", "chartreuse3")
 
@@ -485,3 +540,21 @@ ggsave(biomass_plot, filename = paste0("fish_summary_biomass_", filename, ".png"
 
 ```
 
+
+Example function usage:
+
+```{r}
+fish_summary(fishdata = "Fiji_2023-05_QC.csv", 
+            LWfile = "Pacific_LW_params.csv",
+            filename = "Fiji_2023-05",
+            sp_data = "Species", 
+            sp_lw = "NewName",
+            integrate = FALSE,
+            bin = 5,
+            max_size = 300,
+            size_threshold = 20,
+            width_below = 2,
+            width_above = 4,
+            transect_length = 25)
+
+```
