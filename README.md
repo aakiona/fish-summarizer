@@ -133,4 +133,5 @@ $$\bar{W_i} = \frac{\int_{x_1}^{x_2} a_i L^{b_i} \mathrm{d}L}{x_2 - x_1}$$
 This method corrects for potential bias introduced in the belt survey methods and will work regardless of the width of the size bin. When integrate=TRUE, the function will calculate biomass using the mean value theorem for integrals. When integrate=FALSE, the function will calculate biomass using the given length, i.e. the maximum value for that size bin.
 
 ## Reference
-Akiona, A.K., Zgliczynski, B.J., Agarwal, M.A., French, B.J., Hanna Holloway, N., Lubarsky, K.A., Shirley, M.E., Sullivan, C.J., Sandin, S.A. (In prep) A database of life history parameters for Pacific coral reef fish.
+Akiona, A.K., B.J. Zgliczynski, M.M. Agarwal, B.J. French, N. Hanna Holloway, K.A. Lubarsky, M.E. Shirley, C.J. Sullivan, S.A. Sandin. 2025. A database of life history parameters for Pacific coral reef fish. Scientific Data, 12(1425). https://doi.org/10.1038/s41597-025-05788-x 
+
